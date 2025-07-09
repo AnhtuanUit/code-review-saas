@@ -4,27 +4,23 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
 import { 
   User, 
   Key, 
   Bell, 
   CreditCard, 
   Shield, 
-  Settings as SettingsIcon,
   Github,
   Mail,
-  Crown,
-  Check
+  LogOut
 } from 'lucide-react';
-import { User as UserType } from '@/types';
-import { mockUser } from '@/lib/mockData';
+import { useAuth } from '@/hooks/useAuth';
+import { BillingSection } from './BillingSection';
 
 export function SettingsPage() {
-  const [user, setUser] = useState<UserType>(mockUser);
+  const { user, signOut } = useAuth();
   const [notifications, setNotifications] = useState({
     email: true,
     slack: false,
@@ -33,13 +29,21 @@ export function SettingsPage() {
     securityAlerts: true
   });
 
-  const handleProfileUpdate = (field: string, value: string) => {
-    setUser(prev => ({ ...prev, [field]: value }));
-  };
-
   const handleNotificationToggle = (key: string) => {
     setNotifications(prev => ({ ...prev, [key]: !prev[key] }));
   };
+
+  const handleSignOut = async () => {
+    await signOut();
+  };
+
+  if (!user) {
+    return (
+      <div className="text-center text-slate-400">
+        Please sign in to access settings.
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -68,15 +72,19 @@ export function SettingsPage() {
             <div className="p-6">
               <div className="flex items-center gap-6 mb-6">
                 <Avatar className="h-20 w-20">
-                  <AvatarImage src={user.avatar} alt={user.name} />
-                  <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
+                  <AvatarImage src={user.user_metadata?.avatar_url} alt={user.user_metadata?.full_name || user.email} />
+                  <AvatarFallback>
+                    {(user.user_metadata?.full_name || user.email || 'U').charAt(0).toUpperCase()}
+                  </AvatarFallback>
                 </Avatar>
                 <div>
-                  <h4 className="text-lg font-semibold text-white">{user.name}</h4>
+                  <h4 className="text-lg font-semibold text-white">
+                    {user.user_metadata?.full_name || 'User'}
+                  </h4>
                   <p className="text-slate-400">{user.email}</p>
-                  <Badge variant="outline" className="mt-2">
-                    {user.plan} Plan
-                  </Badge>
+                  <p className="text-slate-500 text-sm">
+                    Member since {new Date(user.created_at).toLocaleDateString()}
+                  </p>
                 </div>
               </div>
 
@@ -85,8 +93,8 @@ export function SettingsPage() {
                   <Label htmlFor="name" className="text-slate-300">Full Name</Label>
                   <Input
                     id="name"
-                    value={user.name}
-                    onChange={(e) => handleProfileUpdate('name', e.target.value)}
+                    value={user.user_metadata?.full_name || ''}
+                    placeholder="Enter your full name"
                     className="bg-slate-700 border-slate-600 text-white"
                   />
                 </div>
@@ -95,10 +103,13 @@ export function SettingsPage() {
                   <Input
                     id="email"
                     type="email"
-                    value={user.email}
-                    onChange={(e) => handleProfileUpdate('email', e.target.value)}
-                    className="bg-slate-700 border-slate-600 text-white"
+                    value={user.email || ''}
+                    disabled
+                    className="bg-slate-700 border-slate-600 text-white opacity-50"
                   />
+                  <p className="text-xs text-slate-400 mt-1">
+                    Email cannot be changed
+                  </p>
                 </div>
               </div>
 
@@ -124,49 +135,14 @@ export function SettingsPage() {
             </div>
             <div className="p-6">
               <div className="space-y-6">
-                <div className="flex items-center justify-between p-4 bg-slate-700/50 rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <Github className="h-8 w-8 text-white" />
-                    <div>
-                      <h4 className="text-white font-medium">GitHub Account</h4>
-                      <p className="text-slate-400 text-sm">@{user.githubUsername}</p>
-                    </div>
-                  </div>
-                  <Badge variant="outline" className="bg-green-600/20 text-green-400 border-green-600/30">
-                    Connected
-                  </Badge>
-                </div>
-
-                <div>
-                  <Label htmlFor="pat" className="text-slate-300">Personal Access Token</Label>
-                  <div className="mt-2 flex gap-3">
-                    <Input
-                      id="pat"
-                      type="password"
-                      placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
-                      className="bg-slate-700 border-slate-600 text-white"
-                    />
-                    <Button variant="outline" className="border-slate-600 text-slate-300 hover:bg-slate-700">
-                      Update
-                    </Button>
-                  </div>
-                  <p className="text-xs text-slate-400 mt-1">
-                    Token is encrypted and stored securely
+                <div className="p-4 bg-slate-700/50 rounded-lg">
+                  <p className="text-slate-300 text-sm">
+                    GitHub integration is not yet configured. Connect your GitHub account to enable repository access and webhook management.
                   </p>
-                </div>
-
-                <div>
-                  <h4 className="text-white font-medium mb-3">Repository Access</h4>
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between p-3 bg-slate-700/30 rounded-lg">
-                      <span className="text-slate-300">Public repositories</span>
-                      <Check className="h-4 w-4 text-green-400" />
-                    </div>
-                    <div className="flex items-center justify-between p-3 bg-slate-700/30 rounded-lg">
-                      <span className="text-slate-300">Private repositories</span>
-                      <Check className="h-4 w-4 text-green-400" />
-                    </div>
-                  </div>
+                  <Button className="mt-3 bg-slate-700 hover:bg-slate-600 text-white">
+                    <Github className="h-4 w-4 mr-2" />
+                    Connect GitHub
+                  </Button>
                 </div>
               </div>
             </div>
@@ -243,58 +219,7 @@ export function SettingsPage() {
         </TabsContent>
 
         <TabsContent value="billing" className="space-y-6">
-          <Card className="bg-slate-800/50 border-slate-700">
-            <div className="p-6 border-b border-slate-700">
-              <div className="flex items-center gap-2">
-                <CreditCard className="h-5 w-5 text-cyan-400" />
-                <h3 className="text-lg font-semibold text-white">Billing Information</h3>
-              </div>
-            </div>
-            <div className="p-6">
-              <div className="space-y-6">
-                <div className="p-4 bg-slate-700/50 rounded-lg">
-                  <div className="flex items-center justify-between mb-3">
-                    <div>
-                      <h4 className="text-white font-medium">Current Plan</h4>
-                      <p className="text-slate-400 text-sm">You're on the {user.plan} plan</p>
-                    </div>
-                    <Badge variant="outline" className="bg-cyan-600/20 text-cyan-400 border-cyan-600/30">
-                      {user.plan}
-                    </Badge>
-                  </div>
-                  {user.plan === 'free' && (
-                    <Button className="bg-cyan-600 hover:bg-cyan-700 text-white">
-                      <Crown className="h-4 w-4 mr-2" />
-                      Upgrade to Pro
-                    </Button>
-                  )}
-                </div>
-
-                <div>
-                  <h4 className="text-white font-medium mb-3">Usage</h4>
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-slate-300">PRs this month</span>
-                      <span className="text-white">24 / 100</span>
-                    </div>
-                    <div className="w-full bg-slate-700 rounded-full h-2">
-                      <div className="bg-cyan-600 h-2 rounded-full" style={{ width: '24%' }} />
-                    </div>
-                  </div>
-                </div>
-
-                {user.plan !== 'free' && (
-                  <div>
-                    <h4 className="text-white font-medium mb-3">Payment Method</h4>
-                    <div className="p-3 bg-slate-700/30 rounded-lg">
-                      <p className="text-slate-300">•••• •••• •••• 4242</p>
-                      <p className="text-slate-400 text-sm">Expires 12/2025</p>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          </Card>
+          <BillingSection />
         </TabsContent>
 
         <TabsContent value="security" className="space-y-6">
@@ -308,14 +233,23 @@ export function SettingsPage() {
             <div className="p-6">
               <div className="space-y-6">
                 <div>
-                  <h4 className="text-white font-medium mb-3">Two-Factor Authentication</h4>
-                  <div className="flex items-center justify-between p-4 bg-slate-700/50 rounded-lg">
-                    <div>
-                      <p className="text-slate-300">Secure your account with 2FA</p>
-                      <p className="text-slate-400 text-sm">Not enabled</p>
-                    </div>
-                    <Button variant="outline" className="border-slate-600 text-slate-300 hover:bg-slate-700">
-                      Enable 2FA
+                  <h4 className="text-white font-medium mb-3">Account Actions</h4>
+                  <div className="space-y-3">
+                    <Button 
+                      variant="outline" 
+                      className="border-slate-600 text-slate-300 hover:bg-slate-700"
+                    >
+                      <Key className="h-4 w-4 mr-2" />
+                      Change Password
+                    </Button>
+                    
+                    <Button 
+                      variant="outline" 
+                      className="border-red-600 text-red-400 hover:bg-red-600/20"
+                      onClick={handleSignOut}
+                    >
+                      <LogOut className="h-4 w-4 mr-2" />
+                      Sign Out
                     </Button>
                   </div>
                 </div>
@@ -326,27 +260,9 @@ export function SettingsPage() {
                     <div className="flex items-center justify-between p-3 bg-slate-700/30 rounded-lg">
                       <div>
                         <p className="text-slate-300">Current session</p>
-                        <p className="text-slate-400 text-sm">MacBook Pro • Chrome • San Francisco</p>
+                        <p className="text-slate-400 text-sm">This device • {new Date().toLocaleDateString()}</p>
                       </div>
-                      <Badge variant="outline" className="bg-green-600/20 text-green-400 border-green-600/30">
-                        Active
-                      </Badge>
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <h4 className="text-white font-medium mb-3">API Keys</h4>
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between p-3 bg-slate-700/30 rounded-lg">
-                      <div>
-                        <p className="text-slate-300">No API keys created</p>
-                        <p className="text-slate-400 text-sm">Generate keys to access the CodeReview API</p>
-                      </div>
-                      <Button variant="outline" className="border-slate-600 text-slate-300 hover:bg-slate-700">
-                        <Key className="h-4 w-4 mr-2" />
-                        Generate Key
-                      </Button>
+                      <span className="text-green-400 text-sm">Active</span>
                     </div>
                   </div>
                 </div>

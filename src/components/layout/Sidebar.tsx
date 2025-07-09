@@ -12,7 +12,8 @@ import {
   LogOut
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { User } from '@/types';
+import { User } from '@supabase/supabase-js';
+import { useSubscription } from '@/hooks/useSubscription';
 
 interface SidebarProps {
   user: User;
@@ -23,6 +24,7 @@ interface SidebarProps {
 
 export function Sidebar({ user, activeTab, onTabChange, onSignOut }: SidebarProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const { subscription } = useSubscription();
 
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -31,6 +33,8 @@ export function Sidebar({ user, activeTab, onTabChange, onSignOut }: SidebarProp
     { id: 'stats', label: 'Statistics', icon: BarChart3 },
     { id: 'settings', label: 'Settings', icon: Settings },
   ];
+
+  const isFreePlan = !subscription?.price_id || subscription.subscription_status !== 'active';
 
   return (
     <div className={cn(
@@ -71,7 +75,7 @@ export function Sidebar({ user, activeTab, onTabChange, onSignOut }: SidebarProp
         })}
       </nav>
 
-      {user.plan === 'free' && (
+      {isFreePlan && (
         <div className="p-4 border-t border-slate-800">
           <div className={cn(
             'bg-gradient-to-r from-cyan-600/20 to-blue-600/20 border border-cyan-600/30 rounded-lg p-3',
@@ -91,6 +95,7 @@ export function Sidebar({ user, activeTab, onTabChange, onSignOut }: SidebarProp
             <Button 
               size={isCollapsed ? 'sm' : 'sm'} 
               className="w-full bg-cyan-600 hover:bg-cyan-700 text-white"
+              onClick={() => onTabChange('settings')}
             >
               {isCollapsed ? <Crown className="h-4 w-4" /> : 'Upgrade Now'}
             </Button>
@@ -101,13 +106,19 @@ export function Sidebar({ user, activeTab, onTabChange, onSignOut }: SidebarProp
       <div className="p-4 border-t border-slate-800">
         <div className="flex items-center gap-3">
           <Avatar className="h-8 w-8 flex-shrink-0">
-            <AvatarImage src={user.avatar} alt={user.name} />
-            <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
+            <AvatarImage src={user.user_metadata?.avatar_url} alt={user.user_metadata?.full_name || user.email} />
+            <AvatarFallback>
+              {(user.user_metadata?.full_name || user.email || 'U').charAt(0).toUpperCase()}
+            </AvatarFallback>
           </Avatar>
           {!isCollapsed && (
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-white truncate">{user.name}</p>
-              <p className="text-xs text-slate-400 truncate">{user.plan}</p>
+              <p className="text-sm font-medium text-white truncate">
+                {user.user_metadata?.full_name || user.email}
+              </p>
+              <p className="text-xs text-slate-400 truncate">
+                {subscription?.product_name || 'Free Plan'}
+              </p>
             </div>
           )}
           <Button

@@ -5,7 +5,8 @@ import { PullRequestsPage } from '@/components/dashboard/PullRequestsPage';
 import { RepositoriesPage } from '@/components/dashboard/RepositoriesPage';
 import { StatsPage } from '@/components/dashboard/StatsPage';
 import { SettingsPage } from '@/components/dashboard/SettingsPage';
-import { User } from '@/types';
+import { User } from '@supabase/supabase-js';
+import { useAuth } from '@/hooks/useAuth';
 
 interface DashboardPageProps {
   user: User;
@@ -14,6 +15,12 @@ interface DashboardPageProps {
 
 export function DashboardPage({ user, onSignOut }: DashboardPageProps) {
   const [activeTab, setActiveTab] = useState('dashboard');
+  const { signOut } = useAuth();
+
+  const handleSignOut = async () => {
+    await signOut();
+    onSignOut();
+  };
 
   const renderContent = () => {
     switch (activeTab) {
@@ -38,7 +45,7 @@ export function DashboardPage({ user, onSignOut }: DashboardPageProps) {
         user={user} 
         activeTab={activeTab} 
         onTabChange={setActiveTab}
-        onSignOut={onSignOut}
+        onSignOut={handleSignOut}
       />
       <main className="flex-1 overflow-auto bg-slate-900">
         <div className="p-6">
