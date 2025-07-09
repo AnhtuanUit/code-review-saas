@@ -28,6 +28,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import "diff2html/bundles/css/diff2html.min.css";
 import { useQuery } from "@tanstack/react-query";
+import ReactMarkdown from "react-markdown";
 
 // Type definitions for GitHub API responses (partial, for linter)
 type GitHubUser = { login: string; avatar_url: string };
@@ -63,6 +64,38 @@ type GitHubTimelineEvent = {
 	actor?: GitHubUser;
 	created_at?: string;
 	body?: string;
+};
+
+interface LintIssue {
+	id: string;
+	rule: string;
+	severity: "error" | "warning" | "info";
+	file: string;
+	line: number;
+	description: string;
+	suggestion?: string;
+}
+
+// Minimal type for GitHub repo API response
+type GitHubRepo = {
+	id: number;
+	name: string;
+	full_name: string;
+};
+
+// Minimal type for GitHub PR API response
+type GitHubPR = {
+	id: number;
+	number: number;
+	title: string;
+	head: { ref: string };
+	user?: { login: string };
+	state: string;
+	merged_at?: string | null;
+	updated_at?: string;
+	created_at?: string;
+	additions?: number;
+	deletions?: number;
 };
 
 export function PullRequestsPage() {
@@ -117,16 +150,16 @@ export function PullRequestsPage() {
 					`https://api.github.com/user/repos?per_page=100`,
 					{ headers: { Authorization: `token ${githubToken}` } }
 				);
-				const repos: unknown = await repoRes.json();
+				const repos: GitHubRepo[] = await repoRes.json();
 				const repo = (Array.isArray(repos) ? repos : []).find(
-					(r: unknown) =>
+					(r: GitHubRepo) =>
 						typeof r === "object" &&
 						r !== null &&
 						"name" in r &&
-						(r as { name: string }).name === selectedPR.repository
+						r.name === selectedPR.repository
 				);
 				if (!repo) throw new Error("Repository not found");
-				const fullName = (repo as { full_name: string }).full_name;
+				const fullName = repo.full_name;
 				// Fetch PR details
 				const prRes = await fetch(
 					`https://api.github.com/repos/${fullName}/pulls/${selectedPR.number}`,
@@ -203,9 +236,16 @@ export function PullRequestsPage() {
 		}
 	};
 
+	function mapGitHubStatusToPRStatus(pr: GitHubPR): PullRequest["status"] {
+		if (pr.state === "open") return "pending";
+		if (pr.state === "closed" && pr.merged_at) return "approved";
+		if (pr.state === "closed") return "failed";
+		return "pending";
+	}
+
 	const { data: pullRequests } = useQuery<PullRequest[]>({
 		queryKey: ["pullRequests"],
-		queryFn: async () => {
+		queryFn: async (): Promise<PullRequest[]> => {
 			// 1. Get GitHub token
 			const {
 				data: { session },
@@ -223,11 +263,11 @@ export function PullRequestsPage() {
 			);
 			if (!repoRes.ok)
 				throw new Error("Failed to fetch repositories from GitHub.");
-			const repos = await repoRes.json();
+			const repos: GitHubRepo[] = await repoRes.json();
 
 			// 3. Fetch PRs for each repo
 			const prResults = await Promise.all(
-				(repos as any[]).map(async (repo: any) => {
+				repos.map(async (repo: GitHubRepo) => {
 					const prsRes = await fetch(
 						`https://api.github.com/repos/${repo.full_name}/pulls?state=all&per_page=50`,
 						{
@@ -235,16 +275,16 @@ export function PullRequestsPage() {
 						}
 					);
 					if (!prsRes.ok) return [];
-					const prs = await prsRes.json();
-					return (prs as any[]).map((pr: any) => ({
+					const prs: GitHubPR[] = await prsRes.json();
+					return prs.map((pr: GitHubPR) => ({
 						id: pr.id.toString(),
 						number: pr.number,
 						title: pr.title,
 						repository: repo.name,
 						branch: pr.head.ref,
 						author: pr.user?.login || "",
-						status: "pending", // Default, you can enhance with checks
-						lastRun: pr.updated_at || pr.created_at,
+						status: mapGitHubStatusToPRStatus(pr),
+						lastRun: String(pr.updated_at || pr.created_at || ''),
 						issuesCount: 0, // Placeholder, unless you have code analysis
 						linesChanged: (pr.additions || 0) + (pr.deletions || 0),
 					}));
@@ -256,7 +296,7 @@ export function PullRequestsPage() {
 	});
 
 	// Filter PRs by search and status
-	const filteredPRs = (pullRequests || []).filter((pr) => {
+	const filteredPRs = (pullRequests || []).filter((pr: PullRequest) => {
 		const matchesSearch =
 			pr.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
 			pr.repository.toLowerCase().includes(searchTerm.toLowerCase());
@@ -435,6 +475,57 @@ export function PullRequestsPage() {
 												);
 											})}
 										</div>
+									</div>
+								</Card>
+								{/* Mock Lint Issues */}
+								<Card className="bg-slate-800/50 border-slate-700">
+									<div className="p-6 border-b border-slate-700">
+										<h3 className="text-lg font-semibold text-white mb-2">
+											Lint Issues
+										</h3>
+										{mockLintIssues.length === 0 ? (
+											<div className="text-slate-400">
+												No lint issues found.
+											</div>
+										) : (
+											<div className="space-y-4">
+												{mockLintIssues.map((issue: LintIssue) => (
+													<div
+														key={issue.id}
+														className="bg-slate-900/60 border border-slate-700 rounded p-4"
+													>
+														<div className="flex items-center gap-2 mb-2">
+															<span className="font-mono text-xs text-cyan-400">
+																{issue.rule}
+															</span>
+															<span
+																className={`text-xs px-2 py-0.5 rounded ${
+																	issue.severity === "error"
+																		? "bg-red-700/40 text-red-400"
+																		: "bg-yellow-700/40 text-yellow-400"
+																}`}
+															>
+																{issue.severity}
+															</span>
+															<span className="text-xs text-slate-400">
+																{issue.file}:{issue.line}
+															</span>
+														</div>
+														<div className="prose prose-invert text-slate-200 text-sm mb-2">
+															<ReactMarkdown>{issue.description}</ReactMarkdown>
+														</div>
+														{issue.suggestion && (
+															<div className="prose prose-invert text-green-300 text-xs mt-2">
+																<strong>Suggestion:</strong>
+																<ReactMarkdown>
+																	{issue.suggestion}
+																</ReactMarkdown>
+															</div>
+														)}
+													</div>
+												))}
+											</div>
+										)}
 									</div>
 								</Card>
 							</div>
@@ -693,3 +784,25 @@ export function PullRequestsPage() {
 		</div>
 	);
 }
+
+// Mock lint issues for PR detail
+const mockLintIssues: LintIssue[] = [
+	{
+		id: "1",
+		rule: "no-unused-vars",
+		severity: "warning",
+		file: "src/components/Button.tsx",
+		line: 23,
+		description: "Variable `isActive` is defined but never used.",
+		suggestion: "Remove the unused variable or use it in your code.",
+	},
+	{
+		id: "2",
+		rule: "eqeqeq",
+		severity: "error",
+		file: "src/utils/helpers.js",
+		line: 10,
+		description: "Expected `===` and instead saw `==`.",
+		suggestion: "Use `===` for strict equality comparison.",
+	},
+];
