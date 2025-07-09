@@ -6,21 +6,22 @@ import { Testimonials } from "@/components/landing/Testimonials";
 import { FAQ } from "@/components/landing/FAQ";
 import { Footer } from "@/components/landing/Footer";
 import { useNavigate } from "react-router-dom";
+import { supabase } from "@/lib/supabase";
 
 interface LandingPageProps {
-	onAuthClick: () => void;
 	isAuthenticated?: boolean;
 }
 
-export function LandingPage({
-	onAuthClick,
-	isAuthenticated = false,
-}: LandingPageProps) {
+export function LandingPage({ isAuthenticated = false }: LandingPageProps) {
 	const navigate = useNavigate();
 	return (
 		<div className="min-h-screen w-full bg-slate-900">
-			<Header onAuthClick={onAuthClick} isAuthenticated={isAuthenticated} />
-			<Hero onGetStarted={onAuthClick} />
+			<Header isAuthenticated={isAuthenticated} />
+			<Hero
+				onGetStarted={() =>
+					supabase.auth.signInWithOAuth({ provider: "github" })
+				}
+			/>
 			{isAuthenticated && (
 				<div className="flex justify-center mt-6">
 					<button
@@ -33,7 +34,9 @@ export function LandingPage({
 			)}
 			<Features />
 			<PricingSection
-				onAuthRequired={onAuthClick}
+				onAuthRequired={() =>
+					supabase.auth.signInWithOAuth({ provider: "github" })
+				}
 				isAuthenticated={isAuthenticated}
 			/>
 			<Testimonials />

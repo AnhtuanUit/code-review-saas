@@ -2,13 +2,13 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Menu, X, Github, Code2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { supabase } from "@/lib/supabase";
 
 interface HeaderProps {
-	onAuthClick: () => void;
 	isAuthenticated?: boolean;
 }
 
-export function Header({ onAuthClick, isAuthenticated = false }: HeaderProps) {
+export function Header({ isAuthenticated = false }: HeaderProps) {
 	const [isMenuOpen, setIsMenuOpen] = useState(false);
 	const navigate = useNavigate();
 
@@ -59,7 +59,9 @@ export function Header({ onAuthClick, isAuthenticated = false }: HeaderProps) {
 							</Button>
 						) : (
 							<Button
-								onClick={onAuthClick}
+								onClick={() =>
+									supabase.auth.signInWithOAuth({ provider: "github" })
+								}
 								className="bg-cyan-600 hover:bg-cyan-700 text-white flex items-center gap-2"
 							>
 								<Github className="h-4 w-4" />
@@ -108,7 +110,9 @@ export function Header({ onAuthClick, isAuthenticated = false }: HeaderProps) {
 								FAQ
 							</a>
 							<Button
-								onClick={onAuthClick}
+								onClick={() =>
+									supabase.auth.signInWithOAuth({ provider: "github" })
+								}
 								className="bg-cyan-600 hover:bg-cyan-700 text-white flex items-center gap-2 w-fit"
 							>
 								<Github className="h-4 w-4" />

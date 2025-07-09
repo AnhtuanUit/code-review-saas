@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useAuth } from "@/hooks/useAuth";
 import {
 	Routes,
 	Route,
@@ -9,9 +9,7 @@ import {
 import { LandingPage } from "@/pages/LandingPage";
 import { DashboardPage } from "@/pages/DashboardPage";
 import { SuccessPage } from "@/pages/SuccessPage";
-import { AuthFlow } from "@/components/auth/AuthFlow";
 import { Toaster } from "@/components/ui/sonner";
-import { useAuth } from "@/hooks/useAuth";
 
 function ProtectedRoute({ children }: { children: JSX.Element }) {
 	const { user, loading } = useAuth();
@@ -31,11 +29,9 @@ function ProtectedRoute({ children }: { children: JSX.Element }) {
 
 export default function App() {
 	const { user } = useAuth();
-	const [showAuthModal, setShowAuthModal] = useState(false);
 	const navigate = useNavigate();
 
-	const handleAuthSuccess = () => {
-		setShowAuthModal(false);
+	const handleSuccessContinue = () => {
 		navigate("/dashboard");
 	};
 
@@ -43,27 +39,10 @@ export default function App() {
 		navigate("/");
 	};
 
-	const handleAuthClick = () => {
-		setShowAuthModal(true);
-	};
-
-	const handleSuccessContinue = () => {
-		navigate("/dashboard");
-	};
-
 	return (
 		<>
-			{showAuthModal && <AuthFlow onSuccess={handleAuthSuccess} />}
 			<Routes>
-				<Route
-					path="/"
-					element={
-						<LandingPage
-							onAuthClick={handleAuthClick}
-							isAuthenticated={!!user}
-						/>
-					}
-				/>
+				<Route path="/" element={<LandingPage isAuthenticated={!!user} />} />
 				<Route
 					path="/success"
 					element={<SuccessPage onContinue={handleSuccessContinue} />}
