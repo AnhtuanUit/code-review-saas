@@ -1,58 +1,66 @@
-import { useState, useEffect } from 'react';
-import { User } from '@supabase/supabase-js';
-import { supabase } from '@/lib/supabase';
+import { useEffect } from "react";
+import { supabase } from "@/lib/supabase";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+
+async function fetchSession() {
+	const {
+		data: { session },
+	} = await supabase.auth.getSession();
+	return session?.user ?? null;
+}
 
 export function useAuth() {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+	const queryClient = useQueryClient();
+	const {
+		data: user,
+		isLoading: loading,
+		refetch,
+	} = useQuery({
+		queryKey: ["authUser"],
+		queryFn: fetchSession,
+	});
 
-  useEffect(() => {
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-      setLoading(false);
-    });
+	useEffect(() => {
+		const {
+			data: { subscription },
+		} = supabase.auth.onAuthStateChange(() => {
+			queryClient.invalidateQueries({ queryKey: ["authUser"] });
+		});
+		return () => subscription.unsubscribe();
+	}, [queryClient]);
 
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        setUser(session?.user ?? null);
-        setLoading(false);
-      }
-    );
+	const signIn = async (email: string, password: string) => {
+		const { data, error } = await supabase.auth.signInWithPassword({
+			email,
+			password,
+		});
+		await refetch();
+		return { data, error };
+	};
 
-    return () => subscription.unsubscribe();
-  }, []);
+	const signUp = async (email: string, password: string) => {
+		const { data, error } = await supabase.auth.signUp({
+			email,
+			password,
+			options: {
+				emailRedirectTo: undefined, // Disable email confirmation
+			},
+		});
+		await refetch();
+		return { data, error };
+	};
 
-  const signIn = async (email: string, password: string) => {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    return { data, error };
-  };
+	const signOut = async () => {
+		const { error } = await supabase.auth.signOut();
+		await refetch();
+		return { error };
+	};
 
-  const signUp = async (email: string, password: string) => {
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        emailRedirectTo: undefined, // Disable email confirmation
-      },
-    });
-    return { data, error };
-  };
-
-  const signOut = async () => {
-    const { error } = await supabase.auth.signOut();
-    return { error };
-  };
-
-  return {
-    user,
-    loading,
-    signIn,
-    signUp,
-    signOut,
-  };
+	return {
+		user,
+		loading,
+		signIn,
+		signUp,
+		signOut,
+	};
 }
